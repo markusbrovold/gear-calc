@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Last War Gear Calculator</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f3f4f8; color: #24324a; line-height: 1.5; }
+    main { max-width: 760px; margin: 3rem auto; background: #ffffff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 18px 32px rgba(36, 50, 74, 0.14); }
+    h1 { margin: 0 0 0.75rem; font-size: clamp(1.8rem, 2.4vw, 2.4rem); }
+    p { margin: 0 0 1.5rem; color: #566175; }
+    .controls { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end; }
+    label { display: flex; flex-direction: column; font-weight: 600; color: #24324a; }
+    select { margin-top: 0.4rem; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1px solid #cdd5e0; background: #f8fafc; font-size: 1rem; color: inherit; transition: border 0.2s, box-shadow 0.2s; }
+    select:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+    button { justify-self: start; padding: 0.65rem 1.3rem; border-radius: 999px; border: none; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; font-weight: 600; cursor: pointer; transition: transform 0.18s, box-shadow 0.18s, opacity 0.18s; box-shadow: 0 12px 22px rgba(37, 99, 235, 0.25); }
+    button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 28px rgba(37, 99, 235, 0.28); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+    .results { margin-top: 2rem; }
+    .result-grid { margin-top: 1rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .result-card { padding: 1.25rem; border-radius: 12px; background: linear-gradient(160deg, #f8fbff, #edf2ff); border: 1px solid rgba(37, 99, 235, 0.16); }
+    .result-card h3 { margin: 0 0 0.35rem; font-size: 1.05rem; color: #2563eb; }
+    .result-card p { margin: 0; font-size: clamp(1.3rem, 2.2vw, 1.6rem); font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12); margin-top: 1.5rem; }
+    caption { padding: 0.75rem 1rem; font-weight: 600; text-align: left; background: #f8fafc; color: #334155; }
+    thead { background: #1d4ed8; color: #fff; }
+    th, td { padding: 0.65rem 1rem; text-align: left; font-size: 0.95rem; }
+    tbody tr:nth-child(odd) { background: #ffffff; }
+    tbody tr:nth-child(even) { background: #f4f6fb; }
+    td { border-bottom: 1px solid #e2e8f0; }
+    tbody tr:last-child td { border-bottom: none; }
+    .message { margin-top: 1.5rem; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid #facc15; background: #fef9c3; color: #713f12; font-weight: 500; }
+    @media (max-width: 640px) {
+      main { margin: 1.5rem; padding: 1.75rem; }
+      .controls { grid-template-columns: 1fr; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Last War Gear Calculator</h1>
+    <p>Pick a start and end level to sum how much <strong>coin</strong>, <strong>ore</strong>, and <strong>ceramic</strong> you need for the upgrade.</p>
+
+    <section class="controls">
+      <label for="fromSelect">
+        From level
+        <select id="fromSelect"></select>
+      </label>
+
+      <label for="toSelect">
+        To level
+        <select id="toSelect"></select>
+      </label>
+
+      <button id="swapButton" type="button" title="Swap from and to">Swap</button>
+    </section>
+
+    <div id="message" class="message" hidden></div>
+
+    <section class="results" aria-live="polite">
+      <h2>Total costs</h2>
+      <div class="result-grid">
+        <article class="result-card">
+          <h3>Coin</h3>
+          <p id="coinTotal">0</p>
+        </article>
+        <article class="result-card">
+          <h3>Ore</h3>
+          <p id="oreTotal">0</p>
+        </article>
+        <article class="result-card">
+          <h3>Ceramic</h3>
+          <p id="ceramicTotal">0</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="results">
+      <h2>Detailed breakdown</h2>
+      <table>
+        <caption>Upgrades from <span id="fromLabel"></span> to <span id="toLabel"></span></caption>
+        <thead>
+          <tr>
+            <th>Step</th>
+            <th>Coin</th>
+            <th>Ore</th>
+            <th>Ceramic</th>
+          </tr>
+        </thead>
+        <tbody id="breakdownBody">
+          <tr>
+            <td colspan="4">No upgrades selected yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const gearData = {
+  "levels": [
+    {
+      "level": 1,
+      "coin": 225000,
+      "ore": 1500,
+      "ceramic": 0
+    },
+    {
+      "level": 2,
+      "coin": 225000,
+      "ore": 1500,
+      "ceramic": 0
+    },
+    {
+      "level": 3,
+      "coin": 225000,
+      "ore": 1500,
+      "ceramic": 0
+    },
+    {
+      "level": 4,
+      "coin": 225000,
+      "ore": 1500,
+      "ceramic": 0
+    },
+    {
+      "level": 5,
+      "coin": 225000,
+      "ore": 1500,
+      "ceramic": 0
+    },
+    {
+      "level": 6,
+      "coin": 337500,
+      "ore": 2200,
+      "ceramic": 0
+    },
+    {
+      "level": 7,
+      "coin": 337500,
+      "ore": 2200,
+      "ceramic": 0
+    },
+    {
+      "level": 8,
+      "coin": 337500,
+      "ore": 2200,
+      "ceramic": 0
+    },
+    {
+      "level": 9,
+      "coin": 450000,
+      "ore": 3000,
+      "ceramic": 0
+    },
+    {
+      "level": 10,
+      "coin": 450000,
+      "ore": 3000,
+      "ceramic": 0
+    },
+    {
+      "level": 11,
+      "coin": 450000,
+      "ore": 3000,
+      "ceramic": 0
+    },
+    {
+      "level": 12,
+      "coin": 562500,
+      "ore": 3700,
+      "ceramic": 0
+    },
+    {
+      "level": 13,
+      "coin": 562500,
+      "ore": 3700,
+      "ceramic": 0
+    },
+    {
+      "level": 14,
+      "coin": 562500,
+      "ore": 3700,
+      "ceramic": 0
+    },
+    {
+      "level": 15,
+      "coin": 562500,
+      "ore": 3700,
+      "ceramic": 0
+    },
+    {
+      "level": 16,
+      "coin": 562500,
+      "ore": 3700,
+      "ceramic": 0
+    },
+    {
+      "level": 17,
+      "coin": 675000,
+      "ore": 4500,
+      "ceramic": 0
+    },
+    {
+      "level": 18,
+      "coin": 675000,
+      "ore": 4500,
+      "ceramic": 0
+    },
+    {
+      "level": 19,
+      "coin": 675000,
+      "ore": 4500,
+      "ceramic": 0
+    },
+    {
+      "level": 20,
+      "coin": 675000,
+      "ore": 4500,
+      "ceramic": 0
+    },
+    {
+      "level": 21,
+      "coin": 787500,
+      "ore": 5200,
+      "ceramic": 0
+    },
+    {
+      "level": 22,
+      "coin": 787500,
+      "ore": 5200,
+      "ceramic": 0
+    },
+    {
+      "level": 23,
+      "coin": 787500,
+      "ore": 5200,
+      "ceramic": 0
+    },
+    {
+      "level": 24,
+      "coin": 787500,
+      "ore": 5200,
+      "ceramic": 0
+    },
+    {
+      "level": 25,
+      "coin": 900000,
+      "ore": 6000,
+      "ceramic": 0
+    },
+    {
+      "level": 26,
+      "coin": 900000,
+      "ore": 6000,
+      "ceramic": 0
+    },
+    {
+      "level": 27,
+      "coin": 900000,
+      "ore": 6000,
+      "ceramic": 0
+    },
+    {
+      "level": 28,
+      "coin": 900000,
+      "ore": 6000,
+      "ceramic": 0
+    },
+    {
+      "level": 29,
+      "coin": 1100000,
+      "ore": 6700,
+      "ceramic": 0
+    },
+    {
+      "level": 30,
+      "coin": 1100000,
+      "ore": 6700,
+      "ceramic": 0
+    },
+    {
+      "level": 31,
+      "coin": 1100000,
+      "ore": 6700,
+      "ceramic": 0
+    },
+    {
+      "level": 32,
+      "coin": 1100000,
+      "ore": 6700,
+      "ceramic": 0
+    },
+    {
+      "level": 33,
+      "coin": 1100000,
+      "ore": 7500,
+      "ceramic": 0
+    },
+    {
+      "level": 34,
+      "coin": 1100000,
+      "ore": 7500,
+      "ceramic": 0
+    },
+    {
+      "level": 35,
+      "coin": 1100000,
+      "ore": 7500,
+      "ceramic": 0
+    },
+    {
+      "level": 36,
+      "coin": 1100000,
+      "ore": 8200,
+      "ceramic": 0
+    },
+    {
+      "level": 37,
+      "coin": 1100000,
+      "ore": 8200,
+      "ceramic": 0
+    },
+    {
+      "level": 38,
+      "coin": 1100000,
+      "ore": 8200,
+      "ceramic": 0
+    },
+    {
+      "level": 39,
+      "coin": 1200000,
+      "ore": 8200,
+      "ceramic": 0
+    },
+    {
+      "level": 40,
+      "coin": 1200000,
+      "ore": 8200,
+      "ceramic": 0
+    }
+  ],
+  "stars": {
+    "1": {
+      "per_segment": {
+        "coin": 23400000,
+        "ore": 12500,
+        "ceramic": 150
+      },
+      "segments": 4,
+      "total": {
+        "coin": 93600000,
+        "ore": 62500,
+        "ceramic": 750
+      }
+    },
+    "2": {
+      "total": {
+        "coin": 121600000,
+        "ore": 81000,
+        "ceramic": 975
+      },
+      "per_segment": {
+        "coin": 30400000,
+        "ore": 20250,
+        "ceramic": 243
+      },
+      "segments": 4
+    },
+    "3": {
+      "total": {
+        "coin": 150000000,
+        "ore": 100000,
+        "ceramic": 1200
+      },
+      "per_segment": {
+        "coin": 37500000,
+        "ore": 25000,
+        "ceramic": 300
+      },
+      "segments": 4
+    },
+    "4": {
+      "total": {
+        "coin": 178000000,
+        "ore": 118500,
+        "ceramic": 1425
+      },
+      "per_segment": {
+        "coin": 44500000,
+        "ore": 29625,
+        "ceramic": 356
+      },
+      "segments": 4
+    },
+    "5": {
+      "per_segment": {
+        "coin": 51500000,
+        "ore": null,
+        "ceramic": null
+      },
+      "segments": 4,
+      "total": {
+        "coin": 206000000,
+        "ore": 137500,
+        "ceramic": 1650
+      },
+      "notes": "User-provided: coin per segment is 51.5M. Ore/ceramic per segment not clearly readable; totals from table."
+    }
+  },
+  "units": {
+    "coin": "absolute (not K/M)",
+    "ore": "absolute",
+    "ceramic": "absolute"
+  },
+  "source": "Transcribed from user-provided screenshot; some totals/per-segment figures inferred."
+};
+
+    (() => {
+      const fromSelect = document.getElementById('fromSelect');
+      const toSelect = document.getElementById('toSelect');
+      const swapButton = document.getElementById('swapButton');
+      const messageEl = document.getElementById('message');
+      const totalsEls = {
+        coin: document.getElementById('coinTotal'),
+        ore: document.getElementById('oreTotal'),
+        ceramic: document.getElementById('ceramicTotal')
+      };
+      const labels = {
+        from: document.getElementById('fromLabel'),
+        to: document.getElementById('toLabel')
+      };
+      const breakdownBody = document.getElementById('breakdownBody');
+      const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+
+      const steps = buildSteps(gearData);
+
+      populateSelect(fromSelect, steps, 0);
+      populateSelect(toSelect, steps, Math.min(1, steps.length - 1));
+
+      updateView();
+
+      fromSelect.addEventListener('change', updateView);
+      toSelect.addEventListener('change', updateView);
+      swapButton.addEventListener('click', () => {
+        const fromValue = fromSelect.value;
+        fromSelect.value = toSelect.value;
+        toSelect.value = fromValue;
+        updateView();
+      });
+
+      function updateView() {
+        const fromIndex = Number(fromSelect.value);
+        const toIndex = Number(toSelect.value);
+
+        labels.from.textContent = steps[fromIndex].label;
+        labels.to.textContent = steps[toIndex].label;
+
+        if (toIndex <= fromIndex) {
+          showMessage('Select an end level that is higher than the start level.');
+          renderTotals({ coin: 0, ore: 0, ceramic: 0 });
+          renderBreakdown([]);
+          swapButton.disabled = true;
+          return;
+        }
+
+        hideMessage();
+        swapButton.disabled = false;
+
+        const relevantSteps = steps.slice(fromIndex + 1, toIndex + 1);
+        const totals = sumCosts(relevantSteps);
+        renderTotals(totals);
+        renderBreakdown(relevantSteps);
+      }
+
+      function renderTotals(totals) {
+        totalsEls.coin.textContent = numberFormatter.format(totals.coin);
+        totalsEls.ore.textContent = numberFormatter.format(totals.ore);
+        totalsEls.ceramic.textContent = numberFormatter.format(totals.ceramic);
+      }
+
+      function renderBreakdown(stepList) {
+        breakdownBody.innerHTML = '';
+        if (stepList.length === 0) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 4;
+          cell.textContent = 'No upgrades selected yet.';
+          row.appendChild(cell);
+          breakdownBody.appendChild(row);
+          return;
+        }
+
+        stepList.forEach(step => {
+          const row = document.createElement('tr');
+          row.innerHTML =
+            '<td>' + step.label + '</td>' +
+            '<td>' + formatValue(step.cost.coin) + '</td>' +
+            '<td>' + formatValue(step.cost.ore) + '</td>' +
+            '<td>' + formatValue(step.cost.ceramic) + '</td>';
+          breakdownBody.appendChild(row);
+        });
+      }
+
+      function formatValue(value) {
+        if (value === null || value === undefined) {
+          return '—';
+        }
+        return numberFormatter.format(value);
+      }
+
+      function showMessage(text) {
+        messageEl.textContent = text;
+        messageEl.hidden = false;
+      }
+
+      function hideMessage() {
+        messageEl.hidden = true;
+        messageEl.textContent = '';
+      }
+
+      function populateSelect(selectEl, items, selectedIndex = 0) {
+        selectEl.innerHTML = '';
+        items.forEach((step, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = step.label;
+          selectEl.appendChild(option);
+        });
+        selectEl.selectedIndex = selectedIndex;
+      }
+
+      function sumCosts(stepList) {
+        return stepList.reduce((totals, step) => {
+          totals.coin += step.cost.coin ?? 0;
+          totals.ore += step.cost.ore ?? 0;
+          totals.ceramic += step.cost.ceramic ?? 0;
+          return totals;
+        }, { coin: 0, ore: 0, ceramic: 0 });
+      }
+
+      function buildSteps(data) {
+        const steps = [{
+          id: 'level-0',
+          label: 'Level 0',
+          type: 'level',
+          cost: { coin: 0, ore: 0, ceramic: 0 }
+        }];
+
+        const sortedLevels = [...(data.levels ?? [])].sort((a, b) => a.level - b.level);
+        sortedLevels.forEach(entry => {
+          steps.push({
+            id: 'level-' + entry.level,
+            label: 'Level ' + entry.level,
+            type: 'level',
+            cost: {
+              coin: entry.coin ?? 0,
+              ore: entry.ore ?? 0,
+              ceramic: entry.ceramic ?? 0
+            }
+          });
+        });
+
+        const starEntries = Object.entries(data.stars ?? {})
+          .map(([key, value]) => ({ star: Number(key), data: value }))
+          .sort((a, b) => a.star - b.star);
+
+        starEntries.forEach(({ star, data: starData }) => {
+          const segments = starData?.segments ?? 0;
+          const segmentCost = calculateSegmentCost(starData);
+          for (let segment = 1; segment <= segments; segment += 1) {
+            steps.push({
+              id: 'star-' + star + '-segment-' + segment,
+              label: 'Star ' + star + ' • Segment ' + segment,
+              type: 'star',
+              star,
+              segment,
+              cost: segmentCost
+            });
+          }
+        });
+
+        return steps;
+      }
+
+      function calculateSegmentCost(starData) {
+        if (!starData) {
+          return { coin: 0, ore: 0, ceramic: 0 };
+        }
+        const segments = starData.segments ?? 1;
+        const perSegment = starData.per_segment ?? {};
+        return {
+          coin: normalizeValue(perSegment.coin, starData.total?.coin, segments),
+          ore: normalizeValue(perSegment.ore, starData.total?.ore, segments),
+          ceramic: normalizeValue(perSegment.ceramic, starData.total?.ceramic, segments)
+        };
+      }
+
+      function normalizeValue(perSegmentValue, totalValue, segments) {
+        if (perSegmentValue !== null && perSegmentValue !== undefined) {
+          return perSegmentValue;
+        }
+        if (totalValue !== null && totalValue !== undefined && segments) {
+          return totalValue / segments;
+        }
+        return 0;
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
+
